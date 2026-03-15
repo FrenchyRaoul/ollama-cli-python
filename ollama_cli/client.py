@@ -18,6 +18,28 @@ class OllamaClient:
         if config.auth:
             self.session.auth = config.auth
     
+    def pull_model(self, model: str) -> bool:
+        """Pull a model if it doesn't exist.
+        
+        Args:
+            model: Model name to pull
+            
+        Returns:
+            True if model was pulled or already exists
+        """
+        url = f"{self.config.base_url}/api/pull"
+        
+        try:
+            response = self.session.post(
+                url,
+                json={"name": model},
+                timeout=300  # 5 minutes for pulling
+            )
+            response.raise_for_status()
+            return True
+        except Exception:
+            return False
+    
     def generate(self, prompt: str, system_prompt: Optional[str] = None) -> str:
         """Generate a response from Ollama.
         
@@ -52,6 +74,26 @@ class OllamaClient:
             
             result = response.json()
             return result.get("response", "")
+            
+        except requests.exceptions.HTTPError as e:
+            # Check if it's a 404 (model not found)
+            if e.response.status_code == 404:
+                # Try to pull the model
+                print(f"Model '{self.config.model}' not found. Pulling...")
+                if self.pull_model(self.config.model):
+                    print(f"Model '{self.config.model}' pulled successfully. Retrying...")
+                    # Retry the request
+                    response = self.session.post(
+                        url,
+                        json=payload,
+                        timeout=self.config.timeout
+                    )
+                    response.raise_for_status()
+                    result = response.json()
+                    return result.get("response", "")
+                else:
+                    raise RuntimeError(f"Failed to pull model '{self.config.model}'")
+            raise
             
         except requests.exceptions.ConnectionError:
             raise ConnectionError(
