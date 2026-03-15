@@ -1,4 +1,6 @@
 import sys
+import os
+from pathlib import Path
 import click
 from rich.console import Console
 from rich.markdown import Markdown
@@ -181,7 +183,7 @@ def search(ctx, query, limit):
 @click.option('--shell', type=click.Choice(['bash', 'zsh', 'fish']), default='bash', help='Shell type')
 @click.pass_context
 def setup_alias(ctx, shell):
-    """Generate shell alias/function for easier use.
+    """Automatically add shell alias/function for easier use.
     
     This creates a shell function that allows you to use:
         ask "your question here"
@@ -190,48 +192,72 @@ def setup_alias(ctx, shell):
     """
     console = ctx.obj['console']
     
+    # Get the absolute path to the project directory
+    project_dir = str(Path(__file__).parent.parent.absolute())
+    
     if shell == 'bash' or shell == 'zsh':
-        alias_code = '''# Ollama CLI alias
-ask() {
-    uv run ollama-ask ask "$@"
-}
+        alias_code = f'''
+# Ollama CLI alias (added by ollama-ask setup-alias)
+ask() {{
+    (cd "{project_dir}" && uv run ollama-ask ask "$@")
+}}
 
 # Optional: Add these for other commands
-alias ask-history="uv run ollama-ask history"
-alias ask-search="uv run ollama-ask search"
-alias ask-models="uv run ollama-ask models"
+alias ask-history="(cd '{project_dir}' && uv run ollama-ask history)"
+alias ask-search="(cd '{project_dir}' && uv run ollama-ask search)"
+alias ask-models="(cd '{project_dir}' && uv run ollama-ask models)"
 '''
-        config_file = '~/.bashrc' if shell == 'bash' else '~/.zshrc'
+        config_file = os.path.expanduser('~/.bashrc' if shell == 'bash' else '~/.zshrc')
         
     elif shell == 'fish':
-        alias_code = '''# Ollama CLI function
+        alias_code = f'''
+# Ollama CLI function (added by ollama-ask setup-alias)
 function ask
-    uv run ollama-ask ask $argv
+    cd "{project_dir}" && uv run ollama-ask ask $argv
 end
 
 # Optional: Add these for other commands
 function ask-history
-    uv run ollama-ask history $argv
+    cd "{project_dir}" && uv run ollama-ask history $argv
 end
 
 function ask-search
-    uv run ollama-ask search $argv
+    cd "{project_dir}" && uv run ollama-ask search $argv
 end
 
 function ask-models
-    uv run ollama-ask models
+    cd "{project_dir}" && uv run ollama-ask models
 end
 '''
-        config_file = '~/.config/fish/config.fish'
+        config_file = os.path.expanduser('~/.config/fish/config.fish')
     
-    console.print(f"[bold cyan]Shell Alias Setup for {shell}[/bold cyan]\n")
-    console.print(f"Add the following to your {config_file}:\n")
-    console.print(Panel(alias_code, border_style="green"))
-    console.print(f"\n[yellow]Then run:[/yellow] source {config_file}")
-    console.print("\n[green]After setup, you can use:[/green]")
-    console.print('  ask "how do I find large files"')
-    console.print('  ask-history')
-    console.print('  ask-search docker')
+    # Check if alias already exists
+    marker = "# Ollama CLI alias (added by ollama-ask setup-alias)" if shell != 'fish' else "# Ollama CLI function (added by ollama-ask setup-alias)"
+    
+    try:
+        if os.path.exists(config_file):
+            with open(config_file, 'r') as f:
+                content = f.read()
+                if marker in content:
+                    console.print(f"[yellow]Aliases already exist in {config_file}[/yellow]")
+                    console.print("[yellow]Remove the existing aliases first if you want to update them.[/yellow]")
+                    return
+        
+        # Append to config file
+        with open(config_file, 'a') as f:
+            f.write(alias_code)
+        
+        console.print(f"[bold green]✓ Aliases added to {config_file}[/bold green]\n")
+        console.print(f"[yellow]Run this to activate:[/yellow] source {config_file}")
+        console.print("\n[green]After sourcing, you can use:[/green]")
+        console.print('  ask "how do I find large files"')
+        console.print('  ask-history')
+        console.print('  ask-search docker')
+        
+    except Exception as e:
+        console.print(f"[bold red]Error writing to {config_file}:[/bold red] {e}", style="red")
+        console.print("\n[yellow]Manual setup:[/yellow]")
+        console.print(alias_code)
 
 
 
