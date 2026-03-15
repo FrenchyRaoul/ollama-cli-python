@@ -6,7 +6,7 @@ ollama:
   
 # Request settings
 request:
-  timeout: 30  # seconds
+  timeout: 120  # seconds
   stream: false
 
 # Made with Bob
