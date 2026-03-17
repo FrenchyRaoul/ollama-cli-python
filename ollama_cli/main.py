@@ -138,7 +138,9 @@ def ask(ctx, question, no_system, no_context, no_history, verbose, with_history,
         full_prompt = f"{context}\n\nQuestion: {question_text}"
         context_used = True
         if config.context_file:
-            console.print(f"[dim]Using context from: {config.context_file}[/dim]")
+            console.print(f"[dim]✓ Using context from: {config.context_file}[/dim]")
+        else:
+            console.print(f"[dim]○ No context file found at ~/.ollama/context.md[/dim]")
     
     console.print(f"[bold cyan]Model:[/bold cyan] {config.model}")
     console.print(f"[bold cyan]Question:[/bold cyan] {question_text}\n")
