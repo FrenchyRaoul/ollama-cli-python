@@ -3,6 +3,13 @@ ollama:
   host: "192.168.0.146"
   port: 11434  # Default Ollama port
   model: "qwen2.5-coder:7b"  # Change to your preferred model
+  embedding_model: "nomic-embed-text"  # Model for generating embeddings
+  
+# Qdrant Configuration
+qdrant:
+  host: "192.168.0.146"
+  port: 6333  # Default Qdrant port
+  enabled: true  # Set to false to disable vector search
   
 # Request settings
 request:

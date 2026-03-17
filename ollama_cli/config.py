@@ -43,6 +43,12 @@ class Config:
         self.host = ollama_config.get('host', 'localhost')
         self.port = ollama_config.get('port', 11434)
         self.model = ollama_config.get('model', 'llama2')
+        self.embedding_model = ollama_config.get('embedding_model', 'nomic-embed-text')
+        
+        qdrant_config = self._config.get('qdrant', {})
+        self.qdrant_host = qdrant_config.get('host', self.host)
+        self.qdrant_port = qdrant_config.get('port', 6333)
+        self.qdrant_enabled = qdrant_config.get('enabled', True)
         
         request_config = self._config.get('request', {})
         self.timeout = request_config.get('timeout', 30)

@@ -11,6 +11,7 @@ from .config import Config
 from .client import OllamaClient
 from .history import ConversationHistory
 from .command_extractor import extract_commands, copy_to_clipboard
+from .vector_store import VectorStore
 
 
 SYSTEM_PROMPT_BASE = """You are a helpful terminal assistant. Your role is to help users with command-line tasks,
@@ -50,6 +51,22 @@ def cli(ctx, config):
         ctx.obj['client'] = OllamaClient(ctx.obj['config'])
         ctx.obj['history'] = ConversationHistory()
         ctx.obj['console'] = Console()
+        
+        # Initialize vector store if enabled
+        cfg = ctx.obj['config']
+        if cfg.qdrant_enabled:
+            try:
+                ctx.obj['vector_store'] = VectorStore(
+                    qdrant_host=cfg.qdrant_host,
+                    qdrant_port=cfg.qdrant_port,
+                    ollama_base_url=cfg.base_url,
+                    embedding_model=cfg.embedding_model
+                )
+            except Exception:
+                # Silently disable vector store if connection fails
+                ctx.obj['vector_store'] = None
+        else:
+            ctx.obj['vector_store'] = None
     except FileNotFoundError as e:
         click.echo(f"Error: {e}", err=True)
         sys.exit(1)
@@ -80,6 +97,7 @@ def ask(ctx, question, no_system, no_context, no_history, verbose, with_history,
     config = ctx.obj['config']
     history = ctx.obj['history']
     console = ctx.obj['console']
+    vector_store = ctx.obj.get('vector_store')
     
     # Join question parts into a single string
     question_text = ' '.join(question)
@@ -87,6 +105,13 @@ def ask(ctx, question, no_system, no_context, no_history, verbose, with_history,
     # Build the full prompt with context if available
     full_prompt = question_text
     context_used = False
+    
+    # Add vector search context if enabled and not disabled
+    if not no_context and vector_store:
+        vector_context = vector_store.get_context_from_search(question_text, limit=3)
+        if vector_context:
+            full_prompt = f"{vector_context}\n\n{full_prompt}"
+            console.print(f"[dim]Using semantic search context[/dim]")
     
     # Add conversation history context if requested
     if with_history:
@@ -149,6 +174,19 @@ def ask(ctx, question, no_system, no_context, no_history, verbose, with_history,
         # Save to history
         if not no_history:
             history.add_entry(question_text, response, config.model, context_used)
+            
+            # Also add to vector store if available
+            if vector_store:
+                from datetime import datetime
+                vector_store.add_conversation(
+                    question=question_text,
+                    answer=response,
+                    metadata={
+                        "model": config.model,
+                        "timestamp": datetime.now().isoformat(),
+                        "context_used": context_used
+                    }
+                )
             
     except ConnectionError as e:
         console.print(f"[bold red]Connection Error:[/bold red] {e}", style="red")
