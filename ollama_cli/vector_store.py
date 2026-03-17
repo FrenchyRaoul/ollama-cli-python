@@ -27,22 +27,18 @@ class VectorStore:
     
     def _ensure_collection(self):
         """Create collection if it doesn't exist."""
-        try:
-            collections = self.qdrant_client.get_collections().collections
-            collection_names = [c.name for c in collections]
+        collections = self.qdrant_client.get_collections().collections
+        collection_names = [c.name for c in collections]
+        
+        if self.collection_name not in collection_names:
+            # Get embedding dimension by creating a test embedding
+            test_embedding = self._get_embedding("test")
+            vector_size = len(test_embedding)
             
-            if self.collection_name not in collection_names:
-                # Get embedding dimension by creating a test embedding
-                test_embedding = self._get_embedding("test")
-                vector_size = len(test_embedding)
-                
-                self.qdrant_client.create_collection(
-                    collection_name=self.collection_name,
-                    vectors_config=VectorParams(size=vector_size, distance=Distance.COSINE)
-                )
-        except Exception as e:
-            # If Qdrant is not available, we'll handle it gracefully
-            pass
+            self.qdrant_client.create_collection(
+                collection_name=self.collection_name,
+                vectors_config=VectorParams(size=vector_size, distance=Distance.COSINE)
+            )
     
     def _get_embedding(self, text: str) -> List[float]:
         """Get embedding vector from Ollama.

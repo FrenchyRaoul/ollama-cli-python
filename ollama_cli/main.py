@@ -68,8 +68,9 @@ def cli(ctx, config):
                     ollama_base_url=cfg.base_url,
                     embedding_model=cfg.embedding_model
                 )
-            except Exception:
-                # Silently disable vector store if connection fails
+            except Exception as e:
+                # Show error but continue without vector store
+                click.echo(f"Warning: Vector store initialization failed: {e}", err=True)
                 ctx.obj['vector_store'] = None
         else:
             ctx.obj['vector_store'] = None
