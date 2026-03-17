@@ -44,7 +44,11 @@ def copy_to_clipboard(text: str) -> tuple[bool, Optional[str]]:
         return True, None
     except pyperclip.PyperclipException as e:
         error_msg = str(e)
-        if "xclip" in error_msg.lower() or "xsel" in error_msg.lower():
+        # Check for display-related errors (SSH without X11)
+        if "display" in error_msg.lower() or "DISPLAY" in error_msg:
+            return False, "Clipboard unavailable (no X11 display in SSH session)"
+        # Check for missing clipboard utilities
+        elif "xclip" in error_msg.lower() or "xsel" in error_msg.lower():
             return False, "Install xclip or xsel: sudo pacman -S xclip"
         return False, f"Clipboard error: {error_msg}"
     except Exception as e:
