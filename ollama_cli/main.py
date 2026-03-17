@@ -68,8 +68,10 @@ def cli(ctx, config):
 @click.option('--no-context', is_flag=True, help='Disable context from .ollama/context.md')
 @click.option('--no-history', is_flag=True, help='Do not save to history')
 @click.option('--verbose', '-v', is_flag=True, help='Get detailed explanations')
+@click.option('--with-history', '-h', is_flag=True, help='Include recent conversation history as context')
+@click.option('--history-limit', default=3, help='Number of previous conversations to include (default: 3)')
 @click.pass_context
-def ask(ctx, question, no_system, no_context, no_history, verbose):
+def ask(ctx, question, no_system, no_context, no_history, verbose, with_history, history_limit):
     """Ask a question about terminal commands or operations.
     
     Example: ollama-ask ask how do I find large files in a directory
@@ -85,6 +87,15 @@ def ask(ctx, question, no_system, no_context, no_history, verbose):
     # Build the full prompt with context if available
     full_prompt = question_text
     context_used = False
+    
+    # Add conversation history context if requested
+    if with_history:
+        conv_context = history.get_conversation_context(history_limit)
+        if conv_context:
+            full_prompt = f"{conv_context}\n\n{full_prompt}"
+            console.print(f"[dim]Including {history_limit} previous conversation(s)[/dim]")
+    
+    # Add file context if available
     if not no_context:
         context = config.get_full_context()
         full_prompt = f"{context}\n\nQuestion: {question_text}"

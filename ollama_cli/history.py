@@ -86,6 +86,26 @@ class ConversationHistory:
         
         return matches[-limit:][::-1]
     
+    def get_conversation_context(self, limit: int = 3) -> str:
+        """Get recent conversation history formatted as context.
+        
+        Args:
+            limit: Number of recent conversations to include
+            
+        Returns:
+            Formatted string with recent Q&A pairs
+        """
+        recent = self.get_recent(limit)
+        if not recent:
+            return ""
+        
+        context_parts = ["Previous conversation:"]
+        for entry in reversed(recent):  # Show oldest first
+            context_parts.append(f"\nQ: {entry['question']}")
+            context_parts.append(f"A: {entry['answer']}")
+        
+        return "\n".join(context_parts)
+    
     def clear(self):
         """Clear all conversation history."""
         if self.history_file.exists():
