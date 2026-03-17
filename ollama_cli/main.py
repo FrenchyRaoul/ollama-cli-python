@@ -13,22 +13,29 @@ from .history import ConversationHistory
 from .command_extractor import extract_commands, copy_to_clipboard
 
 
-SYSTEM_PROMPT = """You are a helpful terminal assistant. Your role is to help users with command-line tasks,
-shell commands, and terminal operations. Provide clear, concise answers with practical examples.
-When suggesting commands, explain what they do. Be direct and technical.
+SYSTEM_PROMPT_BASE = """You are a helpful terminal assistant. Your role is to help users with command-line tasks,
+shell commands, and terminal operations. Be direct and technical.
 
 IMPORTANT: When providing commands that users might want to copy, format them using this special syntax:
 [CMD:label] command_here
 
-Where 'label' is a short identifier (like 'cmd1', 'cmd2', or descriptive like 'find', 'grep', etc.).
-This allows users to easily copy commands to their clipboard.
+Where 'label' is a short identifier (like 'cmd1', 'cmd2', or descriptive like 'find', 'grep', etc.)."""
 
-Example:
-To find large files, use:
-[CMD:find] find . -type f -size +100M
+SYSTEM_PROMPT_CONCISE = SYSTEM_PROMPT_BASE + """
 
-To search for text:
-[CMD:grep] grep -r "pattern" /path/to/search"""
+Keep responses SHORT and CONCISE:
+- Provide the command with minimal explanation
+- Only explain if the command is complex or has important caveats
+- Skip obvious explanations
+- Get straight to the point"""
+
+SYSTEM_PROMPT_VERBOSE = SYSTEM_PROMPT_BASE + """
+
+Provide detailed explanations:
+- Explain what each command does
+- Include practical examples
+- Describe important options and flags
+- Mention potential issues or alternatives"""
 
 
 @click.group(invoke_without_command=True)
@@ -60,8 +67,9 @@ def cli(ctx, config):
 @click.option('--no-system', is_flag=True, help='Disable system prompt')
 @click.option('--no-context', is_flag=True, help='Disable context from .ollama/context.md')
 @click.option('--no-history', is_flag=True, help='Do not save to history')
+@click.option('--verbose', '-v', is_flag=True, help='Get detailed explanations')
 @click.pass_context
-def ask(ctx, question, no_system, no_context, no_history):
+def ask(ctx, question, no_system, no_context, no_history, verbose):
     """Ask a question about terminal commands or operations.
     
     Example: ollama-ask ask how do I find large files in a directory
@@ -88,7 +96,14 @@ def ask(ctx, question, no_system, no_context, no_history):
     console.print(f"[bold cyan]Question:[/bold cyan] {question_text}\n")
     
     try:
-        system_prompt = None if no_system else SYSTEM_PROMPT
+        # Choose system prompt based on verbose flag
+        if no_system:
+            system_prompt = None
+        elif verbose:
+            system_prompt = SYSTEM_PROMPT_VERBOSE
+        else:
+            system_prompt = SYSTEM_PROMPT_CONCISE
+        
         response = client.generate(full_prompt, system_prompt=system_prompt)
         
         # Extract commands from response
