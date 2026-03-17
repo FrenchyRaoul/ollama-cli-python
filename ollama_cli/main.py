@@ -116,13 +116,18 @@ def ask(ctx, question, no_system, no_context, no_history, verbose, with_history,
     vector_context_used = False
     if not no_context and vector_store:
         try:
-            vector_context = vector_store.get_context_from_search(question_text, limit=3)
+            vector_context, debug_info = vector_store.get_context_from_search(question_text, limit=3)
             if vector_context:
                 full_prompt = f"{vector_context}\n\n{full_prompt}"
                 vector_context_used = True
-                console.print(f"[dim]✓ Using semantic search context (3 similar conversations)[/dim]")
+                console.print(f"[dim]✓ Using semantic search context ({debug_info['relevant_count']} similar conversations)[/dim]")
             else:
-                console.print(f"[dim]○ No relevant context found in vector store (min score: 0.7)[/dim]")
+                # Show debug info about why no context was found
+                if debug_info['total_results'] == 0:
+                    console.print(f"[dim]○ No conversations in vector store yet[/dim]")
+                else:
+                    scores_str = ", ".join([f"{s:.2f}" for s in debug_info['scores']])
+                    console.print(f"[dim]○ No relevant context (found {debug_info['total_results']} with scores: {scores_str}, min: {debug_info['min_score']})[/dim]")
         except Exception as e:
             console.print(f"[dim]○ Vector store search failed: {e}[/dim]")
     elif not no_context and not vector_store:

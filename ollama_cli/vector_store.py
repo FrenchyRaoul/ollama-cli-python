@@ -134,7 +134,7 @@ class VectorStore:
             # Return empty list if search fails
             return []
     
-    def get_context_from_search(self, query: str, limit: int = 3, min_score: float = 0.7) -> str:
+    def get_context_from_search(self, query: str, limit: int = 3, min_score: float = 0.7) -> tuple[str, dict]:
         """Get formatted context from similar conversations.
         
         Args:
@@ -143,24 +143,31 @@ class VectorStore:
             min_score: Minimum similarity score (0-1)
             
         Returns:
-            Formatted context string
+            Tuple of (formatted context string, debug info dict)
         """
         results = self.search_similar(query, limit)
         
+        debug_info = {
+            "total_results": len(results),
+            "scores": [r["score"] for r in results] if results else [],
+            "min_score": min_score
+        }
+        
         if not results:
-            return ""
+            return "", debug_info
         
         # Filter by minimum score
         relevant = [r for r in results if r["score"] >= min_score]
+        debug_info["relevant_count"] = len(relevant)
         
         if not relevant:
-            return ""
+            return "", debug_info
         
         context_parts = ["Relevant previous conversations:"]
         for i, result in enumerate(relevant, 1):
             context_parts.append(f"\n{i}. Q: {result['question']}")
             context_parts.append(f"   A: {result['answer'][:200]}{'...' if len(result['answer']) > 200 else ''}")
         
-        return "\n".join(context_parts)
+        return "\n".join(context_parts), debug_info
 
 # Made with Bob
