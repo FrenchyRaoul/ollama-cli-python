@@ -20,7 +20,13 @@ shell commands, and terminal operations. Be direct and technical.
 IMPORTANT: When providing commands that users might want to copy, format them using this special syntax:
 [CMD:N] command_here
 
-Where 'N' is a number starting from 1 (like [CMD:1], [CMD:2], etc.)."""
+Where 'N' is a number starting from 1 (like [CMD:1], [CMD:2], etc.).
+
+RULES for [CMD:N] formatting:
+- Only use [CMD:N] for complete, ready-to-run commands
+- Do NOT use [CMD:N] for commands with placeholders like <filename>, [options], {variable}, etc.
+- Do NOT use [CMD:N] for example templates that need user modification
+- If a command requires user input, explain it separately without [CMD:N]"""
 
 SYSTEM_PROMPT_CONCISE = SYSTEM_PROMPT_BASE + """
 
@@ -107,11 +113,17 @@ def ask(ctx, question, no_system, no_context, no_history, verbose, with_history,
     context_used = False
     
     # Add vector search context if enabled and not disabled
+    vector_context_used = False
     if not no_context and vector_store:
         vector_context = vector_store.get_context_from_search(question_text, limit=3)
         if vector_context:
             full_prompt = f"{vector_context}\n\n{full_prompt}"
-            console.print(f"[dim]Using semantic search context[/dim]")
+            vector_context_used = True
+            console.print(f"[dim]✓ Using semantic search context (3 similar conversations)[/dim]")
+        else:
+            console.print(f"[dim]○ No relevant context found in vector store[/dim]")
+    elif not no_context and not vector_store:
+        console.print(f"[dim]○ Vector store not available[/dim]")
     
     # Add conversation history context if requested
     if with_history:

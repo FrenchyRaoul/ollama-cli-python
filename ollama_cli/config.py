@@ -65,21 +65,15 @@ class Config:
         """Find context.md file in .ollama directory.
         
         Searches in:
-        1. ~/.ollama/context.md (user home)
-        2. ./.ollama/context.md (current directory)
+        1. ~/.ollama/context.md (user home only)
         
         Returns:
             Path to context file if found, None otherwise
         """
-        # Check home directory first
+        # Check home directory only
         home_context = Path.home() / ".ollama" / "context.md"
         if home_context.exists():
             return home_context
-        
-        # Check current directory
-        local_context = Path.cwd() / ".ollama" / "context.md"
-        if local_context.exists():
-            return local_context
         
         return None
     
