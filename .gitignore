@@ -4,6 +4,9 @@
 # UV lock file
 uv.lock
 
+# User-specific context and history
+.ollama/
+
 # Python
 __pycache__/
 *.py[cod]
