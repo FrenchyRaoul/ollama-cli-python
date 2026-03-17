@@ -18,9 +18,9 @@ SYSTEM_PROMPT_BASE = """You are a helpful terminal assistant. Your role is to he
 shell commands, and terminal operations. Be direct and technical.
 
 IMPORTANT: When providing commands that users might want to copy, format them using this special syntax:
-[CMD:label] command_here
+[CMD:N] command_here
 
-Where 'label' is a short identifier (like 'cmd1', 'cmd2', or descriptive like 'find', 'grep', etc.)."""
+Where 'N' is a number starting from 1 (like [CMD:1], [CMD:2], etc.)."""
 
 SYSTEM_PROMPT_CONCISE = SYSTEM_PROMPT_BASE + """
 
@@ -163,13 +163,16 @@ def ask(ctx, question, no_system, no_context, no_history, verbose, with_history,
                 # Find the command with matching label
                 matching_cmd = next((cmd for lbl, cmd in commands if lbl == choice), None)
                 if matching_cmd:
-                    if copy_to_clipboard(matching_cmd):
-                        console.print(f"[bold green]✓ Command '{choice}' copied to clipboard[/bold green]")
+                    success, error_msg = copy_to_clipboard(matching_cmd)
+                    if success:
+                        console.print(f"[bold green]✓ Command {choice} copied to clipboard[/bold green]")
                     else:
-                        console.print("[bold red]✗ Failed to copy to clipboard[/bold red]")
+                        console.print(f"[bold red]✗ Failed to copy to clipboard[/bold red]")
+                        if error_msg:
+                            console.print(f"[yellow]{error_msg}[/yellow]")
                         console.print(f"\n[yellow]Command:[/yellow]\n{matching_cmd}")
                 else:
-                    console.print(f"[yellow]No command found with label '{choice}'[/yellow]")
+                    console.print(f"[yellow]No command found with number '{choice}'[/yellow]")
         
         # Save to history
         if not no_history:

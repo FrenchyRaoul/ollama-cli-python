@@ -3,6 +3,7 @@ ollama:
   host: "192.168.0.146"
   port: 11434  # Default Ollama port
   model: "qwen2.5-coder:7b"  # Change to your preferred model
+  # odel: "phi3:mini"  # much faster, but less accurate
   embedding_model: "nomic-embed-text"  # Model for generating embeddings
   
 # Qdrant Configuration
