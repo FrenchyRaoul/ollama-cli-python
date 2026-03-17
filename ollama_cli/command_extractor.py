@@ -30,6 +30,29 @@ def extract_commands(response: str) -> List[Tuple[str, str]]:
     return commands
 
 
+def check_clipboard_available() -> tuple[bool, Optional[str]]:
+    """Check if clipboard is available.
+    
+    Returns:
+        Tuple of (available, error_message)
+    """
+    try:
+        # Try to copy a test string
+        pyperclip.copy("test")
+        return True, None
+    except pyperclip.PyperclipException as e:
+        error_msg = str(e)
+        # Check for display-related errors (SSH without X11)
+        if "display" in error_msg.lower() or "DISPLAY" in error_msg:
+            return False, "Clipboard unavailable (no X11 display in SSH session)"
+        # Check for missing clipboard utilities
+        elif "xclip" in error_msg.lower() or "xsel" in error_msg.lower():
+            return False, "Install xclip or xsel: sudo pacman -S xclip"
+        return False, f"Clipboard error: {error_msg}"
+    except Exception as e:
+        return False, f"Unexpected error: {e}"
+
+
 def copy_to_clipboard(text: str) -> tuple[bool, Optional[str]]:
     """Copy text to clipboard.
     

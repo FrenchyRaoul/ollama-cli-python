@@ -10,23 +10,37 @@ from rich.prompt import Prompt
 from .config import Config
 from .client import OllamaClient
 from .history import ConversationHistory
-from .command_extractor import extract_commands, copy_to_clipboard
+from .command_extractor import extract_commands, copy_to_clipboard, check_clipboard_available
 from .vector_store import VectorStore
 
 
 SYSTEM_PROMPT_BASE = """You are a helpful terminal assistant. Your role is to help users with command-line tasks,
 shell commands, and terminal operations. Be direct and technical.
 
-IMPORTANT: When providing commands that users might want to copy, format them using this special syntax:
-[CMD:N] command_here
+CRITICAL COMMAND FORMATTING RULES:
+When providing commands, use [CMD:N] ONLY for commands that can be copied and run immediately.
 
-Where 'N' is a number starting from 1 (like [CMD:1], [CMD:2], etc.).
+FORMAT REQUIREMENTS:
+- [CMD:N] must be on its own line with ONLY the command
+- Nothing else on the same line (no explanations, no comments)
+- Number commands sequentially: [CMD:1], [CMD:2], etc.
 
-RULES for [CMD:N] formatting:
-- Only use [CMD:N] for complete, ready-to-run commands
-- Do NOT use [CMD:N] for commands with placeholders like <filename>, [options], {variable}, etc.
-- Do NOT use [CMD:N] for example templates that need user modification
-- If a command requires user input, explain it separately without [CMD:N]"""
+✓ CORRECT examples:
+[CMD:1] find . -type f -size +100M
+
+[CMD:2] docker ps -a
+
+✗ WRONG examples:
+- [CMD:1] find . -name <filename>  (has placeholder)
+- Use this command: [CMD:1] ls -la  (has text before)
+- [CMD:1] docker ps  # shows containers  (has comment after)
+- find . -name [pattern]  (has placeholder, no [CMD:N])
+
+RULES:
+- Only use [CMD:N] for complete, ready-to-run commands with actual values
+- NEVER use [CMD:N] for commands with <placeholders>, [options], {variables}
+- NEVER put explanatory text on the same line as [CMD:N]
+- If a command needs customization, show it WITHOUT [CMD:N]"""
 
 SYSTEM_PROMPT_CONCISE = SYSTEM_PROMPT_BASE + """
 
@@ -171,7 +185,7 @@ def ask(ctx, question, no_system, no_context, no_history, verbose, with_history,
         # Display with syntax highlighting
         console.print(Panel(Markdown(response), title="[bold green]Answer[/bold green]", border_style="green"))
         
-        # If commands were found, offer to copy them
+        # If commands were found, check if clipboard is available
         if commands:
             console.print(f"\n[bold cyan]Found {len(commands)} command(s):[/bold cyan]")
             for label, cmd in commands:
@@ -179,23 +193,30 @@ def ask(ctx, question, no_system, no_context, no_history, verbose, with_history,
                 preview = cmd if len(cmd) <= 60 else cmd[:57] + "..."
                 console.print(f"  [{label}] {preview}")
             
-            console.print("\n[dim]Type a label to copy that command, or press Enter to skip[/dim]")
-            choice = Prompt.ask("[bold cyan]Copy command[/bold cyan]", default="")
+            # Check if clipboard is available before prompting
+            clipboard_available, clipboard_error = check_clipboard_available()
             
-            if choice:
-                # Find the command with matching label
-                matching_cmd = next((cmd for lbl, cmd in commands if lbl == choice), None)
-                if matching_cmd:
-                    success, error_msg = copy_to_clipboard(matching_cmd)
-                    if success:
-                        console.print(f"[bold green]✓ Command {choice} copied to clipboard[/bold green]")
+            if not clipboard_available:
+                console.print(f"\n[yellow]⚠ Clipboard not available: {clipboard_error}[/yellow]")
+                console.print("[dim]Commands are displayed above for manual copying[/dim]")
+            else:
+                console.print("\n[dim]Type a number to copy that command, or press Enter to skip[/dim]")
+                choice = Prompt.ask("[bold cyan]Copy command[/bold cyan]", default="")
+                
+                if choice:
+                    # Find the command with matching label
+                    matching_cmd = next((cmd for lbl, cmd in commands if lbl == choice), None)
+                    if matching_cmd:
+                        success, error_msg = copy_to_clipboard(matching_cmd)
+                        if success:
+                            console.print(f"[bold green]✓ Command {choice} copied to clipboard[/bold green]")
+                        else:
+                            console.print(f"[bold red]✗ Failed to copy to clipboard[/bold red]")
+                            if error_msg:
+                                console.print(f"[yellow]{error_msg}[/yellow]")
+                            console.print(f"\n[yellow]Command:[/yellow]\n{matching_cmd}")
                     else:
-                        console.print(f"[bold red]✗ Failed to copy to clipboard[/bold red]")
-                        if error_msg:
-                            console.print(f"[yellow]{error_msg}[/yellow]")
-                        console.print(f"\n[yellow]Command:[/yellow]\n{matching_cmd}")
-                else:
-                    console.print(f"[yellow]No command found with number '{choice}'[/yellow]")
+                        console.print(f"[yellow]No command found with number '{choice}'[/yellow]")
         
         # Save to history
         if not no_history:
