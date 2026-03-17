@@ -115,13 +115,16 @@ def ask(ctx, question, no_system, no_context, no_history, verbose, with_history,
     # Add vector search context if enabled and not disabled
     vector_context_used = False
     if not no_context and vector_store:
-        vector_context = vector_store.get_context_from_search(question_text, limit=3)
-        if vector_context:
-            full_prompt = f"{vector_context}\n\n{full_prompt}"
-            vector_context_used = True
-            console.print(f"[dim]✓ Using semantic search context (3 similar conversations)[/dim]")
-        else:
-            console.print(f"[dim]○ No relevant context found in vector store[/dim]")
+        try:
+            vector_context = vector_store.get_context_from_search(question_text, limit=3)
+            if vector_context:
+                full_prompt = f"{vector_context}\n\n{full_prompt}"
+                vector_context_used = True
+                console.print(f"[dim]✓ Using semantic search context (3 similar conversations)[/dim]")
+            else:
+                console.print(f"[dim]○ No relevant context found in vector store (min score: 0.7)[/dim]")
+        except Exception as e:
+            console.print(f"[dim]○ Vector store search failed: {e}[/dim]")
     elif not no_context and not vector_store:
         console.print(f"[dim]○ Vector store not available[/dim]")
     
@@ -194,16 +197,20 @@ def ask(ctx, question, no_system, no_context, no_history, verbose, with_history,
             
             # Also add to vector store if available
             if vector_store:
-                from datetime import datetime
-                vector_store.add_conversation(
-                    question=question_text,
-                    answer=response,
-                    metadata={
-                        "model": config.model,
-                        "timestamp": datetime.now().isoformat(),
-                        "context_used": context_used
-                    }
-                )
+                try:
+                    from datetime import datetime
+                    vector_store.add_conversation(
+                        question=question_text,
+                        answer=response,
+                        metadata={
+                            "model": config.model,
+                            "timestamp": datetime.now().isoformat(),
+                            "context_used": context_used
+                        }
+                    )
+                    console.print(f"[dim]✓ Conversation added to vector store[/dim]")
+                except Exception as e:
+                    console.print(f"[dim]⚠ Failed to add to vector store: {e}[/dim]")
             
     except ConnectionError as e:
         console.print(f"[bold red]Connection Error:[/bold red] {e}", style="red")
