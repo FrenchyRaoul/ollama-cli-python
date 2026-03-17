@@ -5,15 +5,30 @@ import click
 from rich.console import Console
 from rich.markdown import Markdown
 from rich.panel import Panel
+from rich.prompt import Prompt
 
 from .config import Config
 from .client import OllamaClient
 from .history import ConversationHistory
+from .command_extractor import extract_commands, copy_to_clipboard
 
 
-SYSTEM_PROMPT = """You are a helpful terminal assistant. Your role is to help users with command-line tasks, 
-shell commands, and terminal operations. Provide clear, concise answers with practical examples. 
-When suggesting commands, explain what they do. Be direct and technical."""
+SYSTEM_PROMPT = """You are a helpful terminal assistant. Your role is to help users with command-line tasks,
+shell commands, and terminal operations. Provide clear, concise answers with practical examples.
+When suggesting commands, explain what they do. Be direct and technical.
+
+IMPORTANT: When providing commands that users might want to copy, format them using this special syntax:
+[CMD:label] command_here
+
+Where 'label' is a short identifier (like 'cmd1', 'cmd2', or descriptive like 'find', 'grep', etc.).
+This allows users to easily copy commands to their clipboard.
+
+Example:
+To find large files, use:
+[CMD:find] find . -type f -size +100M
+
+To search for text:
+[CMD:grep] grep -r "pattern" /path/to/search"""
 
 
 @click.group(invoke_without_command=True)
@@ -76,8 +91,34 @@ def ask(ctx, question, no_system, no_context, no_history):
         system_prompt = None if no_system else SYSTEM_PROMPT
         response = client.generate(full_prompt, system_prompt=system_prompt)
         
+        # Extract commands from response
+        commands = extract_commands(response)
+        
         # Display with syntax highlighting
         console.print(Panel(Markdown(response), title="[bold green]Answer[/bold green]", border_style="green"))
+        
+        # If commands were found, offer to copy them
+        if commands:
+            console.print(f"\n[bold cyan]Found {len(commands)} command(s):[/bold cyan]")
+            for label, cmd in commands:
+                # Show first 60 chars of command
+                preview = cmd if len(cmd) <= 60 else cmd[:57] + "..."
+                console.print(f"  [{label}] {preview}")
+            
+            console.print("\n[dim]Type a label to copy that command, or press Enter to skip[/dim]")
+            choice = Prompt.ask("[bold cyan]Copy command[/bold cyan]", default="")
+            
+            if choice:
+                # Find the command with matching label
+                matching_cmd = next((cmd for lbl, cmd in commands if lbl == choice), None)
+                if matching_cmd:
+                    if copy_to_clipboard(matching_cmd):
+                        console.print(f"[bold green]✓ Command '{choice}' copied to clipboard[/bold green]")
+                    else:
+                        console.print("[bold red]✗ Failed to copy to clipboard[/bold red]")
+                        console.print(f"\n[yellow]Command:[/yellow]\n{matching_cmd}")
+                else:
+                    console.print(f"[yellow]No command found with label '{choice}'[/yellow]")
         
         # Save to history
         if not no_history:
