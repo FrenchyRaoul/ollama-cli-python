@@ -1,14 +1,17 @@
 # Ollama Configuration
 ollama:
-  host: "192.168.0.146"
+  host: "192.168.0.192"
+  # host: "192.168.0.146"  # Previous server
   port: 11434  # Default Ollama port
-  model: "qwen2.5-coder:7b"  # Change to your preferred model
-  # odel: "phi3:mini"  # much faster, but less accurate
+  model: "qwen3-coder:30b"  # Change to your preferred model
+  # model: "qwen2.5-coder:7b"  # Previous model on 192.168.0.146
+  # model: "phi3:mini"  # much faster, but less accurate
   embedding_model: "nomic-embed-text"  # Model for generating embeddings
   
 # Qdrant Configuration
 qdrant:
-  host: "192.168.0.146"
+  host: "192.168.0.192"
+  # host: "192.168.0.146"  # Previous server
   port: 6333  # Default Qdrant port
   enabled: true  # Set to false to disable vector search
   
